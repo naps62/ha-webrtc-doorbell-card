@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.7.1';
+const VERSION = '0.7.2';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -96,6 +96,14 @@ class WebrtcDoorbellCard extends HTMLElement {
     this._waitForVideo().then((v) => {
       if (!v) return;
       v.muted = true;
+      v.controls = false;
+      v.playsInline = true;
+      v.disablePictureInPicture = true;
+      v.setAttribute('playsinline', '');
+      v.setAttribute('webkit-playsinline', '');
+      v.setAttribute('x5-playsinline', '');
+      v.setAttribute('disablepictureinpicture', '');
+      v.setAttribute('disableremoteplayback', '');
       this._sourceVideo = v;
       const layout = this._config.layout || 'split';
       if (layout === 'split') {
@@ -151,8 +159,18 @@ class WebrtcDoorbellCard extends HTMLElement {
       const v = document.createElement('video');
       v.autoplay = true;
       v.muted = true;
+      v.controls = false;
       v.playsInline = true;
+      v.disablePictureInPicture = true;
+      // Prevent iOS Safari / Android Chrome from auto-entering native
+      // fullscreen on landscape rotation. `playsinline` (W3C) covers modern
+      // browsers; `webkit-playsinline` covers older iOS; the others stop
+      // the chrome from offering external playback or native PiP.
       v.setAttribute('playsinline', '');
+      v.setAttribute('webkit-playsinline', '');
+      v.setAttribute('x5-playsinline', '');
+      v.setAttribute('disablepictureinpicture', '');
+      v.setAttribute('disableremoteplayback', '');
       v.style.cssText = [
         'width:100%', 'height:100%',
         `object-fit:${objectFit}`,
