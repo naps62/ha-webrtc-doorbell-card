@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.7.0';
+const VERSION = '0.7.1';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -147,37 +147,49 @@ class WebrtcDoorbellCard extends HTMLElement {
     ].join(';');
     wrap.appendChild(stack);
 
-    const mkVideo = (objectFit, flex, extra) => {
+    const mkPlainVideo = (objectFit) => {
       const v = document.createElement('video');
       v.autoplay = true;
       v.muted = true;
       v.playsInline = true;
       v.setAttribute('playsinline', '');
       v.style.cssText = [
-        `flex:${flex}`,
-        'width:100%', 'min-height:0',
+        'width:100%', 'height:100%',
         `object-fit:${objectFit}`,
-        'background:black',
-        extra || '',
+        'background:black', 'display:block',
       ].join(';');
       return v;
     };
 
-    // Top: full uncropped frame, sized to match the video's aspect ratio so
-    // there's no letterbox. Bottom: takes the remaining height with a cover crop.
-    // We default to a 16:9 aspect-ratio and refine once metadata loads.
-    this._topVideo = mkVideo(
-      'contain',
-      '0 0 auto',
-      'aspect-ratio:16/9;max-height:50vh',
-    );
-    this._bottomVideo = mkVideo('cover', '1 1 auto');
-    this._topVideo.addEventListener('loadedmetadata', () => {
+    // Top: a wrapper div with aspect-ratio carries the height (more reliable
+    // than aspect-ratio on the flex item itself). Inside, the video uses
+    // object-fit: contain. Updated to the actual stream aspect on metadata.
+    const topMaxVh = this._config.top_max_height_vh || 35;
+    this._topFrame = document.createElement('div');
+    this._topFrame.style.cssText = [
+      'flex:0 0 auto',
+      'width:100%',
+      'aspect-ratio:16/9',
+      `max-height:${topMaxVh}vh`,
+      'background:black',
+    ].join(';');
+    this._topVideo = mkPlainVideo('contain');
+    this._topFrame.appendChild(this._topVideo);
+
+    // Bottom: takes whatever vertical space is left.
+    this._bottomVideo = mkPlainVideo('cover');
+    this._bottomVideo.style.flex = '1 1 auto';
+    this._bottomVideo.style.minHeight = '0';
+
+    const updateTopAspect = () => {
       const vw = this._topVideo.videoWidth;
       const vh = this._topVideo.videoHeight;
-      if (vw && vh) this._topVideo.style.aspectRatio = `${vw}/${vh}`;
-    });
-    stack.appendChild(this._topVideo);
+      if (vw && vh) this._topFrame.style.aspectRatio = `${vw}/${vh}`;
+    };
+    this._topVideo.addEventListener('loadedmetadata', updateTopAspect);
+    this._topVideo.addEventListener('resize', updateTopAspect);
+
+    stack.appendChild(this._topFrame);
     stack.appendChild(this._bottomVideo);
   }
 
@@ -193,6 +205,19 @@ class WebrtcDoorbellCard extends HTMLElement {
     if (this._bottomVideo && this._bottomVideo.srcObject !== stream) {
       this._bottomVideo.srcObject = stream;
       this._bottomVideo.play?.().catch(() => {});
+    }
+    // Belt-and-suspenders: keep the top frame's aspect-ratio in sync with
+    // the actual stream dimensions, even if events didn't fire.
+    if (this._topFrame && this._topVideo) {
+      const vw = this._topVideo.videoWidth || src.videoWidth;
+      const vh = this._topVideo.videoHeight || src.videoHeight;
+      if (vw && vh) {
+        const desired = `${vw}/${vh}`;
+        if (this._topFrame.dataset.ratio !== desired) {
+          this._topFrame.style.aspectRatio = desired;
+          this._topFrame.dataset.ratio = desired;
+        }
+      }
     }
   }
 
