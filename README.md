@@ -17,7 +17,7 @@ A Home Assistant Lovelace card that wraps [AlexxIT/WebRTC](https://github.com/Al
 ### HACS (custom repository)
 
 1. HACS → Frontend → ⋮ → Custom repositories
-2. Add `https://git.naps.pt/naps62/ha-webrtc-doorbell-card`, category **Lovelace**
+2. Add `https://github.com/naps62/ha-webrtc-doorbell-card`, category **Dashboard**
 3. Install **WebRTC Doorbell Card**, then hard-refresh your browser.
 
 ### Manual

@@ -5,7 +5,7 @@
 // (incoming via video.muted, outgoing via mic track .enabled), plus an
 // optional unlock button that fires a configurable HA action.
 //
-// Repository: https://git.naps.pt/naps62/ha-webrtc-doorbell-card
+// Repository: https://github.com/naps62/ha-webrtc-doorbell-card
 
 (() => {
   if (window.__webrtcDoorbellPatchInstalled) return;
@@ -229,7 +229,7 @@ if (!window.customCards.find((c) => c.type === 'webrtc-doorbell-card')) {
     type: 'webrtc-doorbell-card',
     name: 'WebRTC Doorbell',
     description: 'Doorbell with answer/end call (toggles both audio directions)',
-    documentationURL: 'https://git.naps.pt/naps62/ha-webrtc-doorbell-card',
+    documentationURL: 'https://github.com/naps62/ha-webrtc-doorbell-card',
   });
 }
 
