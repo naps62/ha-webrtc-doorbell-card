@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -147,24 +147,36 @@ class WebrtcDoorbellCard extends HTMLElement {
     ].join(';');
     wrap.appendChild(stack);
 
-    const mkVideo = (objectFit, flexBasis) => {
+    const mkVideo = (objectFit, flex, extra) => {
       const v = document.createElement('video');
       v.autoplay = true;
       v.muted = true;
       v.playsInline = true;
       v.setAttribute('playsinline', '');
       v.style.cssText = [
-        `flex:${flexBasis}`,
+        `flex:${flex}`,
         'width:100%', 'min-height:0',
         `object-fit:${objectFit}`,
         'background:black',
+        extra || '',
       ].join(';');
       return v;
     };
 
-    // Top: full uncropped frame (see the sides). Bottom: cover crop (fills width).
-    this._topVideo = mkVideo('contain', '0 0 40%');
-    this._bottomVideo = mkVideo('cover', '1 1 60%');
+    // Top: full uncropped frame, sized to match the video's aspect ratio so
+    // there's no letterbox. Bottom: takes the remaining height with a cover crop.
+    // We default to a 16:9 aspect-ratio and refine once metadata loads.
+    this._topVideo = mkVideo(
+      'contain',
+      '0 0 auto',
+      'aspect-ratio:16/9;max-height:50vh',
+    );
+    this._bottomVideo = mkVideo('cover', '1 1 auto');
+    this._topVideo.addEventListener('loadedmetadata', () => {
+      const vw = this._topVideo.videoWidth;
+      const vh = this._topVideo.videoHeight;
+      if (vw && vh) this._topVideo.style.aspectRatio = `${vw}/${vh}`;
+    });
     stack.appendChild(this._topVideo);
     stack.appendChild(this._bottomVideo);
   }
