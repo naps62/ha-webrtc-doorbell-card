@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -66,7 +66,11 @@ class WebrtcDoorbellCard extends HTMLElement {
     const overlay = document.createElement('div');
     overlay.style.cssText = [
       'position:absolute',
-      'left:0', 'right:0', 'bottom:24px',
+      'left:0', 'right:0',
+      // Pin to bottom of viewport, respecting iOS home-indicator / Android nav-bar safe areas
+      'bottom:max(24px, env(safe-area-inset-bottom, 24px))',
+      'padding-left:env(safe-area-inset-left, 0)',
+      'padding-right:env(safe-area-inset-right, 0)',
       'display:flex', 'justify-content:center', 'gap:24px',
       'z-index:10', 'pointer-events:none',
     ].join(';');
@@ -88,7 +92,16 @@ class WebrtcDoorbellCard extends HTMLElement {
     overlay.appendChild(this._answerBtn);
     overlay.appendChild(this._endBtn);
 
-    this._waitForVideo().then((v) => { if (v) v.muted = true; });
+    this._waitForVideo().then((v) => {
+      if (!v) return;
+      v.muted = true;
+      // Fill the viewport in both portrait and landscape — landscape camera
+      // would otherwise letterbox heavily on a portrait phone.
+      const fit = this._config.object_fit || 'cover';
+      v.style.objectFit = fit;
+      v.style.width = '100%';
+      v.style.height = '100%';
+    });
   }
 
   _makeBtn(icon, bg, onClick) {
