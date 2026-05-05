@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -58,10 +58,11 @@ class WebrtcDoorbellCard extends HTMLElement {
       ui: false,
       background: true,
     });
-    inner.style.cssText = 'display:block;width:100%;height:100%;';
     if (this._hass) inner.hass = this._hass;
     this._inner = inner;
-    wrap.appendChild(inner);
+    this._appendInner(wrap, inner);
+
+    this._buildVideoLayout(wrap);
 
     const overlay = document.createElement('div');
     overlay.style.cssText = [
@@ -95,13 +96,97 @@ class WebrtcDoorbellCard extends HTMLElement {
     this._waitForVideo().then((v) => {
       if (!v) return;
       v.muted = true;
-      // Fill the viewport in both portrait and landscape — landscape camera
-      // would otherwise letterbox heavily on a portrait phone.
-      const fit = this._config.object_fit || 'cover';
-      v.style.objectFit = fit;
-      v.style.width = '100%';
-      v.style.height = '100%';
+      this._sourceVideo = v;
+      const layout = this._config.layout || 'split';
+      if (layout === 'split') {
+        // Hidden inner video drives WebRTC; mirror its srcObject onto our
+        // display videos. Poll because srcObject can change on reconnect
+        // without firing observable events.
+        this._mirrorStream();
+        this._mirrorInterval = setInterval(() => this._mirrorStream(), 1000);
+      } else {
+        // Single-video layout — apply object-fit override directly.
+        const fit = this._config.object_fit || (layout === 'contain' ? 'contain' : 'cover');
+        v.style.objectFit = fit;
+        v.style.width = '100%';
+        v.style.height = '100%';
+      }
     });
+  }
+
+  // Hide or show the inner card depending on layout. For 'split' we keep it
+  // off-screen but rendered (so the connection stays alive). For other layouts
+  // we let it render full-size and skip the mirror.
+  _appendInner(wrap, inner) {
+    const layout = this._config.layout || 'split';
+    if (layout === 'split') {
+      const cage = document.createElement('div');
+      cage.style.cssText = [
+        'position:absolute', 'left:0', 'top:0',
+        'width:1px', 'height:1px',
+        'opacity:0', 'pointer-events:none',
+        'overflow:hidden',
+      ].join(';');
+      cage.appendChild(inner);
+      wrap.appendChild(cage);
+    } else {
+      inner.style.cssText = 'display:block;width:100%;height:100%;';
+      wrap.appendChild(inner);
+    }
+  }
+
+  _buildVideoLayout(wrap) {
+    const layout = this._config.layout || 'split';
+    if (layout !== 'split') return;
+
+    const stack = document.createElement('div');
+    stack.style.cssText = [
+      'position:absolute', 'inset:0',
+      'display:flex', 'flex-direction:column',
+      'background:black',
+    ].join(';');
+    wrap.appendChild(stack);
+
+    const mkVideo = (objectFit, flexBasis) => {
+      const v = document.createElement('video');
+      v.autoplay = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.setAttribute('playsinline', '');
+      v.style.cssText = [
+        `flex:${flexBasis}`,
+        'width:100%', 'min-height:0',
+        `object-fit:${objectFit}`,
+        'background:black',
+      ].join(';');
+      return v;
+    };
+
+    // Top: full uncropped frame (see the sides). Bottom: cover crop (fills width).
+    this._topVideo = mkVideo('contain', '0 0 40%');
+    this._bottomVideo = mkVideo('cover', '1 1 60%');
+    stack.appendChild(this._topVideo);
+    stack.appendChild(this._bottomVideo);
+  }
+
+  _mirrorStream() {
+    const src = this._sourceVideo;
+    if (!src) return;
+    const stream = src.srcObject;
+    if (!stream) return;
+    if (this._topVideo && this._topVideo.srcObject !== stream) {
+      this._topVideo.srcObject = stream;
+      this._topVideo.play?.().catch(() => {});
+    }
+    if (this._bottomVideo && this._bottomVideo.srcObject !== stream) {
+      this._bottomVideo.srcObject = stream;
+      this._bottomVideo.play?.().catch(() => {});
+    }
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._mirrorInterval);
+    this._mirrorInterval = null;
   }
 
   _makeBtn(icon, bg, onClick) {
@@ -206,8 +291,17 @@ class WebrtcDoorbellCard extends HTMLElement {
   }
 
   _setActive(active) {
-    const v = this._findVideo();
-    if (v) v.muted = !active;
+    // In split layout the source video is hidden and we mirror its stream onto
+    // display videos. Keep the source muted so audio comes from exactly one
+    // visible video (the bottom one). Outside split layout the source video
+    // *is* the visible one, so we toggle that.
+    const split = (this._config.layout || 'split') === 'split';
+    if (split) {
+      if (this._sourceVideo) this._sourceVideo.muted = true;
+      if (this._bottomVideo) this._bottomVideo.muted = !active;
+    } else if (this._sourceVideo) {
+      this._sourceVideo.muted = !active;
+    }
     const stream = window.__webrtcDoorbellMicStream;
     if (stream) {
       stream.getAudioTracks().forEach((t) => { t.enabled = active; });

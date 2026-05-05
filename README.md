@@ -38,9 +38,14 @@ unlock_action:                     # optional — omit to hide the unlock button
     entity_id: camera.doorbell_main
 unlock_icon: mdi:key               # optional, defaults to mdi:key
 mode: webrtc                       # optional, passed through to webrtc-camera
-object_fit: cover                  # optional, 'cover' (default) or 'contain' — controls
-                                   # whether the video crops to fill the viewport ('cover')
-                                   # or letterboxes to preserve the full frame ('contain')
+layout: split                      # optional — 'split' (default), 'cover', or 'contain'
+                                   #   split:   top half shows the full uncropped frame,
+                                   #            bottom half is a center-cropped 'cover' view.
+                                   #            One WebRTC connection drives both.
+                                   #   cover:   single video, fills viewport (crops sides
+                                   #            on portrait phones with landscape cameras).
+                                   #   contain: single video, letterboxed to preserve frame.
+object_fit: cover                  # optional, only honored with layout: cover/contain
 ```
 
 A `panel: true` view works best:
