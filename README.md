@@ -42,6 +42,11 @@ top_max_height_vh: 35              # optional, only for layout: split — caps t
                                    # full-frame top section at this many vh units
                                    # (default 35). Lower this if the top half feels
                                    # too dominant on tall portrait screens.
+landscape_hide_top: true           # optional, only for layout: split — when true
+                                   # (default), hides the top full-frame view on
+                                   # landscape orientation since the cropped bottom
+                                   # already fills the screen well. Set false to
+                                   # keep the split in landscape too.
 layout: split                      # optional — 'split' (default), 'cover', or 'contain'
                                    #   split:   top half shows the full uncropped frame,
                                    #            bottom half is a center-cropped 'cover' view.

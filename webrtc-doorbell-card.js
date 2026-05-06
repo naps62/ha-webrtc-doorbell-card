@@ -24,7 +24,7 @@
   };
 })();
 
-const VERSION = '0.7.2';
+const VERSION = '0.8.0';
 
 class WebrtcDoorbellCard extends HTMLElement {
   setConfig(config) {
@@ -209,6 +209,22 @@ class WebrtcDoorbellCard extends HTMLElement {
 
     stack.appendChild(this._topFrame);
     stack.appendChild(this._bottomVideo);
+
+    // In landscape, the camera fits naturally on the screen — drop the
+    // top contain-view and let the bottom cover-view fill everything.
+    // Set `landscape_hide_top: false` to keep the split in landscape.
+    if (this._config.landscape_hide_top !== false) {
+      const mql = window.matchMedia('(orientation: landscape)');
+      const apply = (matches) => {
+        this._topFrame.style.display = matches ? 'none' : '';
+      };
+      apply(mql.matches);
+      const handler = (e) => apply(e.matches);
+      if (mql.addEventListener) mql.addEventListener('change', handler);
+      else mql.addListener(handler);
+      this._orientationMql = mql;
+      this._orientationHandler = handler;
+    }
   }
 
   _mirrorStream() {
@@ -242,6 +258,13 @@ class WebrtcDoorbellCard extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this._mirrorInterval);
     this._mirrorInterval = null;
+    if (this._orientationMql && this._orientationHandler) {
+      if (this._orientationMql.removeEventListener) {
+        this._orientationMql.removeEventListener('change', this._orientationHandler);
+      } else {
+        this._orientationMql.removeListener(this._orientationHandler);
+      }
+    }
   }
 
   _makeBtn(icon, bg, onClick) {
